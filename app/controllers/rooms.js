@@ -42,11 +42,15 @@ module.exports = function() {
     });
 
     core.on('rooms:new', function(room) {
-        app.io.emit('rooms:new', room);
+        if (!room.private || room.hasPassword) {
+            app.io.emit('rooms:new', room);
+        }
     });
 
     core.on('rooms:update', function(room) {
-        app.io.emit('rooms:update', room);
+        if (!room.private || room.hasPassword) {
+            app.io.emit('rooms:update', room);
+        }
     });
 
     core.on('rooms:archive', function(room) {
@@ -104,13 +108,20 @@ module.exports = function() {
                     return res.status(400).json(err);
                 }
 
-                res.json(rooms);
+                var results = rooms.map(function(room) {
+                    return room.toJSON(req.user);
+                });
+
+                res.json(results);
             });
         },
         get: function(req, res) {
-            var roomId = req.param('room') || req.param('id');
+            var options = {
+                userId: req.user._id,
+                identifier: req.param('room') || req.param('id')
+            };
 
-            core.rooms.get(roomId, function(err, room) {
+            core.rooms.get(options, function(err, room) {
                 if (err) {
                     console.error(err);
                     return res.status(400).json(err);
@@ -120,7 +131,7 @@ module.exports = function() {
                     return res.sendStatus(404);
                 }
 
-                res.json(room);
+                res.json(room.toJSON(req.user));
             });
         },
         create: function(req, res) {
@@ -129,10 +140,12 @@ module.exports = function() {
                 name: req.param('name'),
                 slug: req.param('slug'),
                 description: req.param('description'),
+                private: req.param('private'),
                 password: req.param('password')
             };
 
-            if(!settings.passwordProtected) {
+            if (!settings.private) {
+                options.private = false;
                 delete options.password;
             }
 
@@ -142,7 +155,7 @@ module.exports = function() {
                     return res.status(400).json(err);
                 }
 
-                res.status(201).json(room);
+                res.status(201).json(room.toJSON(req.user));
             });
         },
         update: function(req, res) {
@@ -153,8 +166,14 @@ module.exports = function() {
                     slug: req.param('slug'),
                     description: req.param('description'),
                     password: req.param('password'),
+                    participants: req.param('participants'),
                     user: req.user
                 };
+
+            if (!settings.private) {
+                delete options.password;
+                delete options.participants;
+            }
 
             core.rooms.update(roomId, options, function(err, room) {
                 if (err) {
@@ -166,7 +185,7 @@ module.exports = function() {
                     return res.sendStatus(404);
                 }
 
-                res.json(room);
+                res.json(room.toJSON(req.user));
             });
         },
         archive: function(req, res) {
@@ -208,7 +227,7 @@ module.exports = function() {
                     return res.sendStatus(404);
                 }
 
-                if(!canJoin) {
+                if(!canJoin && room.password) {
                     return res.status(403).json({
                         status: 'error',
                         message: 'password required',
@@ -216,12 +235,16 @@ module.exports = function() {
                     });
                 }
 
+                if(!canJoin) {
+                    return res.sendStatus(404);
+                }
+
                 var user = req.user.toJSON();
                 user.room = room._id;
 
                 core.presence.join(req.socket.conn, room);
                 req.socket.join(room._id);
-                res.json(room.toJSON());
+                res.json(room.toJSON(req.user));
             });
         },
         leave: function(req, res) {
