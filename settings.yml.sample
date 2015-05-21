@@ -34,6 +34,13 @@ database:
 secrets:
   cookie: secretsauce
 
+managed_rooms:
+  test:
+    hash: 555db68110ffa0c526b9d11c
+    users: [test]
+  prywatny:
+    hash: 555dade810ffa0c526b9d11b
+
 auth:
   providers: [local]
   local:

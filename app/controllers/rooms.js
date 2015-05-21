@@ -5,6 +5,15 @@
 'use strict';
 
 var settings = require('./../config').rooms;
+var managed_rooms = require('./../config').managed_rooms;
+var managed_rooms_mapping = {};
+for (var property in managed_rooms) {
+    if (!managed_rooms.hasOwnProperty(property)) {
+        continue;
+    }
+    managed_rooms_mapping[managed_rooms[property].hash] = managed_rooms[property];
+}
+
 
 module.exports = function() {
     var app = this.app,
@@ -99,9 +108,29 @@ module.exports = function() {
                 };
 
             core.rooms.list(options, function(err, rooms) {
+                var user = req.user;
+                user.provider
                 if (err) {
                     console.error(err);
                     return res.status(400).json(err);
+                }
+                if (managed_rooms && user.provider === 'local') {
+                    for(var i = 0; i < rooms.length; i++) {
+                        var room = rooms[i];
+                        var room_id = "";
+                        if (typeof room.id === 'string') {
+                            room_id = room.id;
+                        } else if (typeof room.id.toHexString === 'function') {
+                            room_id = room.id.toHexString();
+                        }
+                        if (!managed_rooms_mapping.hasOwnProperty(room_id)) {
+                            continue;
+                        }
+                        if (managed_rooms_mapping[room.id].users && ~managed_rooms_mapping[room_id].users.indexOf(user.username)) {
+                            continue;
+                        }
+                        rooms.splice(i--, 1);
+                    }
                 }
 
                 res.json(rooms);
