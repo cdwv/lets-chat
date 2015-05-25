@@ -259,7 +259,7 @@ module.exports = function() {
                     return res.sendStatus(404);
                 }
 
-                if (!core.rooms.mayAccess(req,user, room)) {
+                if (!core.rooms.mayAccess(req.user, room)) {
                     return res.sendStatus(404);
                 }
 
