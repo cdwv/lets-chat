@@ -50,10 +50,7 @@ RoomManager.prototype.mayAccess = function (user, room) {
     } else if (typeof room.id.toHexString === 'function') {
         room_id = room.id.toHexString();
     }
-    if (!managed_rooms_mapping.hasOwnProperty(room_id)) {
-        return true;
-    }
-    if (managed_rooms_mapping[room.id].users && ~managed_rooms_mapping[room_id].users.indexOf(user.username)) {
+    if (managed_rooms_mapping[room.id] && managed_rooms_mapping[room.id].users && ~managed_rooms_mapping[room_id].users.indexOf(user.username)) {
         return true;
     }
 
