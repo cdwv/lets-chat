@@ -4,6 +4,15 @@ var mongoose = require('mongoose'),
     _ = require('lodash'),
     helpers = require('./helpers');
 
+var managed_rooms = require('./../config').managed_rooms;
+var managed_rooms_mapping = {};
+for (var property in managed_rooms) {
+    if (!managed_rooms.hasOwnProperty(property)) {
+        continue;
+    }
+    managed_rooms_mapping[managed_rooms[property].hash] = managed_rooms[property];
+}
+
 var getParticipants = function(room, options, cb) {
     if (!room.private || !options.participants) {
         return cb(null, []);
@@ -56,6 +65,30 @@ RoomManager.prototype.canJoin = function(options, cb) {
         });
     });
 };
+
+RoomManager.prototype.mayAccess = function (user, room) {
+    var room_id = "";
+    if (user.provider === 'ldap') {
+        return true;
+    }
+    if (typeof room === "undefined") {
+        // I think it's ok to access room that does not exist
+        return true;
+    }
+    if (typeof room.id === 'string') {
+        room_id = room.id;
+    } else if (typeof room.id.toHexString === 'function') {
+        room_id = room.id.toHexString();
+    }
+    if (!managed_rooms_mapping.hasOwnProperty(room_id)) {
+        return true;
+    }
+    if (managed_rooms_mapping[room.id].users && ~managed_rooms_mapping[room_id].users.indexOf(user.username)) {
+        return true;
+    }
+
+    return false;
+}
 
 RoomManager.prototype.create = function(options, cb) {
     var Room = mongoose.model('Room');
